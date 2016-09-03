@@ -16,9 +16,6 @@
     </style>
   </head>
   <body>
-    <button class="play" data-sound="bang">Play 1</button>
-    <button class="play" data-sound="zip">Play 2</button>
-
     <div id="kaossilator"></div>
 
     <script src="/socket.io/socket.io.js"></script>
@@ -50,10 +47,6 @@
         var time = Math.floor(timeMin + ev.center.y / elementHeight * (timeMax - timeMin));
 
         play('bang', freq, time);
-      });
-
-      $('.play').click(function() {
-        play($(this).data('sound'));
       });
 
       var play = function(sound, param1, param2) {
