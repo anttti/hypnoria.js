@@ -3,45 +3,115 @@
   <head>
   </head>
   <body>
-    <script src="/jquery.js"></script>
+    <button class="mute">Mute</button>
     <script src="/socket.io/socket.io.js"></script>
-    <script src="/timbre.js"></script>
     <script>
-      var sounds = {
-        zip: function() {
-          var sine1 = T("sin", {freq:440, mul:0.5});
-          var sine2 = T("sin", {freq:660, mul:0.5});
+      function makeDistortionCurve(amount) {
+        var k = typeof amount === 'number' ? amount : 50,
+          n_samples = 44100,
+          curve = new Float32Array(n_samples),
+          deg = Math.PI / 180,
+          i = 0,
+          x;
+        for ( ; i < n_samples; ++i ) {
+          x = i * 2 / n_samples - 1;
+          curve[i] = ( 3 + k ) * x * 20 * deg / ( Math.PI + k * Math.abs(x) );
+        }
+        return curve;
+      };
 
-          T("perc", {r:500}, sine1, sine2).on("ended", function() {
-            this.pause();
-          }).bang().play();
-        },
+      var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      var amp = audioCtx.createGain();
+      var filter = audioCtx.createBiquadFilter();
+      var distortion = audioCtx.createWaveShaper();
 
-        bang: function(freqFrom, time) {
-          var table = [freqFrom, [110, time + "ms"]];
+      distortion.connect(filter);
+      filter.connect(amp);
+      amp.connect(audioCtx.destination);
 
-          var freq = T("env", {table:table}).on("bang", function() {
-              VCO.mul = 0.2;
-          }).on("ended", function() {
-              VCO.mul = 0;
-          });
-          var VCO = T("saw", {freq:freq, mul:0}).play();
+      filter.type = 'lowpass';
+      filter.frequency.value = 750;
 
-          freq.bang();  
+      distortion.curve = makeDistortionCurve(400);
+      distortion.oversample = '4x';
+
+      amp.gain.value = 0.5;
+
+      var isStarted = false;
+
+      var oscFreqMin = 100;
+      var oscFreqMax = 1000;
+      var filterFreqMin = 0;
+      var filterFreqMax = 10000;
+      var distortionMin = 0;
+      var distortionMax = 800;
+
+      var clamp = function(val, min, max) {
+        if (val < min) return min;
+        if (val > max) return max;
+        return val;
+      }
+
+      var mute = document.querySelector('.mute');
+      mute.onclick = function() {
+        if (mute.id === '') {
+          amp.disconnect(audioCtx.destination);
+          mute.id = 'activated';
+          mute.innerHTML = 'Unmute';
+        } else {
+          amp.connect(audioCtx.destination);
+          mute.id = '';
+          mute.innerHTML = 'Mute';
         }
       }
 
+      var isPlaying = false;
+
+      // will stop in 100ms after the last sound-play event
+      var PLAYING_TIMEOUT = 100;
+      var timeout;
+      
       var socket = io();
+
+      var oscillator, oscillator2;
+
       socket.on('sound-play', function(payload) {
         var parsed = JSON.parse(payload);
-        var now = new Date().getTime();
-        var latency = now - parsed.timestamp;
+        // var now = new Date().getTime();
+        // var latency = now - parsed.timestamp;
 
-        var sound = sounds[parsed.sound];
-        console.log(parsed.sound, sound);
-        if (sound) {
-          sound(parsed.param1, parsed.param2);
+        if (!isPlaying) {
+          isPlaying = true;
+          oscillator = audioCtx.createOscillator();
+          oscillator.connect(distortion);
+          oscillator.type = 'sawtooth';
+          oscillator.start();
+
+          oscillator2 = audioCtx.createOscillator();
+          oscillator2.connect(filter);
+          oscillator2.type = 'sawtooth';
+          oscillator2.start();
         }
+
+        var newOscFreq = clamp(parsed.param1, oscFreqMin, oscFreqMax);
+        var newFilterFreq = clamp(parsed.param2, filterFreqMin, filterFreqMax);
+        var newDistortion = clamp(parsed.param3, distortionMin, distortionMax);
+        
+        oscillator.frequency.value = newOscFreq + 2;
+        oscillator2.frequency.value = newOscFreq - 2;
+        filter.frequency.value = newFilterFreq;
+        distortion.curve = makeDistortionCurve(newDistortion);
+        
+        console.log('osc:', newOscFreq, 'filter:', newFilterFreq, 'dist:', newDistortion);
+
+        if (timeout) {
+          clearTimeout(timeout);
+        }
+        timeout = setTimeout(function() {
+          isPlaying = false;
+          oscillator.stop();
+          oscillator2.stop();
+        }, PLAYING_TIMEOUT);
       });
     </script>
   </body>

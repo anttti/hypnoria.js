@@ -13,7 +13,13 @@ app.get('/player', (req, res) => {
   res.sendFile(__dirname + '/public/player.html');
 });
 
+const MAX_CLIENTS = 1;
+const clients = [];
+
 io.on('connection', socket => {
+  // if (clients.length >= MAX_CLIENTS) {
+  //   return;
+  // }
   socket.on('sound-request', payload => {
     io.emit('sound-play', payload);
   });
