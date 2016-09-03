@@ -1,18 +1,71 @@
 <!doctype html>
 <html>
   <head>
+    <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1">
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+      }
+      #kaossilator {
+        margin-top: 20px;
+        width: 100%;
+        height: 200px;
+        background: rgba(0,0,100,0.1);
+      }
+    </style>
   </head>
   <body>
-    <button id="play">Play!</button>
+    <button class="play" data-sound="bang">Play 1</button>
+    <button class="play" data-sound="zip">Play 2</button>
+
+    <div id="kaossilator"></div>
+
     <script src="/socket.io/socket.io.js"></script>
-    <script src="http://code.jquery.com/jquery-1.11.1.js"></script>
+    <script src="/jquery.js"></script>
+    <script src="/hammer.js"></script>
     <script>
+      // Disable double-tap zooming on iOS 10
+      document.documentElement.addEventListener('touchend', function (event) {
+        event.preventDefault();
+      }, false);
+
       var socket = io();
-      $('#play').click(function() {
-        var sound = { soundId: 1, timestamp: new Date().getTime() };
-        console.log('sending', JSON.stringify(sound))
-        socket.emit('sound-request', JSON.stringify(sound));
+
+      var kaossilator = document.getElementById('kaossilator');
+      var mc = new Hammer(kaossilator);
+
+      mc.get('pan').set({ direction: Hammer.DIRECTION_ALL });
+      // mc.on("panleft panright panup pandown tap press", function(ev) {
+      mc.on('tap press', function(ev) {
+        var freqMin = 200;
+        var freqMax = 2000;
+        var timeMin = 100;
+        var timeMax = 2000;
+
+        var elementWidth = kaossilator.offsetWidth; 
+        var elementHeight = kaossilator.offsetHeight; 
+
+        var freq = Math.floor(freqMin + ev.center.x / elementWidth * (freqMax - freqMin));
+        var time = Math.floor(timeMin + ev.center.y / elementHeight * (timeMax - timeMin));
+
+        play('bang', freq, time);
       });
+
+      $('.play').click(function() {
+        play($(this).data('sound'));
+      });
+
+      var play = function(sound, param1, param2) {
+        var sound = {
+          sound: sound,
+          param1: param1,
+          param2: param2,
+          timestamp: new Date().getTime()
+        };
+        console.log('sending', JSON.stringify(sound));
+        socket.emit('sound-request', JSON.stringify(sound));
+      }
     </script>
   </body>
 </html>
