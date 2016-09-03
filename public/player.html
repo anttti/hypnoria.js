@@ -6,28 +6,45 @@
     <button class="mute">Mute</button>
     <script src="/socket.io/socket.io.js"></script>
     <script>
+      function makeDistortionCurve(amount) {
+        var k = typeof amount === 'number' ? amount : 50,
+          n_samples = 44100,
+          curve = new Float32Array(n_samples),
+          deg = Math.PI / 180,
+          i = 0,
+          x;
+        for ( ; i < n_samples; ++i ) {
+          x = i * 2 / n_samples - 1;
+          curve[i] = ( 3 + k ) * x * 20 * deg / ( Math.PI + k * Math.abs(x) );
+        }
+        return curve;
+      };
+
       var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      var oscillator = audioCtx.createOscillator();
       var amp = audioCtx.createGain();
       var filter = audioCtx.createBiquadFilter();
+      var distortion = audioCtx.createWaveShaper();
 
-      oscillator.connect(filter);
+      distortion.connect(filter);
       filter.connect(amp);
       amp.connect(audioCtx.destination);
 
       filter.type = 'lowpass';
       filter.frequency.value = 750;
 
-      oscillator.type = 'sawtooth';
-      oscillator.frequency.value = 500;
-      oscillator.start();
+      distortion.curve = makeDistortionCurve(400);
+      distortion.oversample = '4x';
 
       amp.gain.value = 0.5;
+
+      var isStarted = false;
 
       var oscFreqMin = 100;
       var oscFreqMax = 1000;
       var filterFreqMin = 0;
       var filterFreqMax = 10000;
+      var distortionMin = 0;
+      var distortionMax = 800;
 
       var clamp = function(val, min, max) {
         if (val < min) return min;
@@ -48,18 +65,53 @@
         }
       }
 
+      var isPlaying = false;
+
+      // will stop in 100ms after the last sound-play event
+      var PLAYING_TIMEOUT = 100;
+      var timeout;
+      
       var socket = io();
+
+      var oscillator, oscillator2;
+
       socket.on('sound-play', function(payload) {
         var parsed = JSON.parse(payload);
-        var now = new Date().getTime();
-        var latency = now - parsed.timestamp;
+        // var now = new Date().getTime();
+        // var latency = now - parsed.timestamp;
+
+        if (!isPlaying) {
+          isPlaying = true;
+          oscillator = audioCtx.createOscillator();
+          oscillator.connect(distortion);
+          oscillator.type = 'sawtooth';
+          oscillator.start();
+
+          oscillator2 = audioCtx.createOscillator();
+          oscillator2.connect(filter);
+          oscillator2.type = 'sawtooth';
+          oscillator2.start();
+        }
 
         var newOscFreq = clamp(parsed.param1, oscFreqMin, oscFreqMax);
         var newFilterFreq = clamp(parsed.param2, filterFreqMin, filterFreqMax);
-        console.log('oscfreq:', newOscFreq, 'filterfreq:', newFilterFreq);
+        var newDistortion = clamp(parsed.param3, distortionMin, distortionMax);
         
-        oscillator.frequency.value = newOscFreq;
+        oscillator.frequency.value = newOscFreq + 2;
+        oscillator2.frequency.value = newOscFreq - 2;
         filter.frequency.value = newFilterFreq;
+        distortion.curve = makeDistortionCurve(newDistortion);
+        
+        console.log('osc:', newOscFreq, 'filter:', newFilterFreq, 'dist:', newDistortion);
+
+        if (timeout) {
+          clearTimeout(timeout);
+        }
+        timeout = setTimeout(function() {
+          isPlaying = false;
+          oscillator.stop();
+          oscillator2.stop();
+        }, PLAYING_TIMEOUT);
       });
     </script>
   </body>

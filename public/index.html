@@ -57,44 +57,51 @@
       var oscFreqMax = 1000;
       var filterFreqMin = 0;
       var filterFreqMax = 10000;
+      var distortionMin = 0;
+      var distortionMax = 800;
 
       var kaossilator = document.getElementById('kaossilator');
       var cursor = document.getElementById('cursor');
+
+      // TODO: Recalculate when orientation changes
       var elementWidth = kaossilator.offsetWidth;
       var elementHeight = kaossilator.offsetHeight;
-
-      var delayBetweenEmits = 10;
-      var lastEmit = new Date().getTime();
   
+      var isPlaying = false;
+      var oscFreq, filterFreq, distortion;
+
       var mc = new Hammer(kaossilator);
       mc.get('pan').set({ direction: Hammer.DIRECTION_ALL });
-  
+
       mc.on('panleft panright panup pandown tap press', function(ev) {
+        isPlaying = true;
+
         cursor.classList.remove('hidden');
-        var now = new Date().getTime();
-        if (now - lastEmit > 10) {
-          lastEmit = now;
+        cursor.style.left = ev.center.x - 100 + 'px';
+        cursor.style.top = ev.center.y - 100 + 'px';
 
-          // Place cursor
-          cursor.style.left = ev.center.x - 100 + 'px';
-          cursor.style.top = ev.center.y - 100 + 'px';
-
-          // Calculate freqs and play
-          var oscFreq = Math.floor(oscFreqMin + ev.center.x / elementWidth * (oscFreqMax - oscFreqMin));
-          var filterFreq = Math.floor(filterFreqMin + ev.center.y / elementHeight * (filterFreqMax - filterFreqMin));
-          play('bang', oscFreq, filterFreq);
-        }
+        oscFreq = Math.floor(oscFreqMin + ev.center.x / elementWidth * (oscFreqMax - oscFreqMin));
+        filterFreq = Math.floor(filterFreqMin + ev.center.y / elementHeight * (filterFreqMax - filterFreqMin));
+        distortion = Math.floor(distortionMin + ev.center.y / elementHeight * (distortionMax - distortionMin));
       });
 
-      mc.on('panend tap press', function(ev) {
+      mc.on('panend tap press', function() {
+        isPlaying = false;
         cursor.classList.add('hidden');
       });
 
-      var play = function(sound, param1, param2) {
+      var update = setInterval(function() {
+        if (isPlaying) {
+          play('bang', oscFreq, filterFreq, distortion);
+        }
+      }, 20);
+
+      var play = function(sound, param1, param2, param3) {
         var sound = {
           sound: sound,
           param1: param1,
           param2: param2,
+          param3: param3,
           timestamp: new Date().getTime()
         };
         console.log('sending', JSON.stringify(sound));
