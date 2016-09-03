@@ -4,8 +4,9 @@
   </head>
   <body>
     <ul id="messages"></ul>
-    <script src="/socket.io/socket.io.js"></script>
     <script src="http://code.jquery.com/jquery-1.11.1.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/timbre.js"></script>
     <script>
       var socket = io();
       socket.on('sound-play', function(payload) {
@@ -13,6 +14,14 @@
         var now = new Date().getTime();
         var latency = now - parsed.timestamp;
         console.log('playing', payload);
+
+        var sine1 = T("sin", {freq:440, mul:0.5});
+        var sine2 = T("sin", {freq:660, mul:0.5});
+
+        T("perc", {r:500}, sine1, sine2).on("ended", function() {
+          this.pause();
+        }).bang().play();
+
         $('#messages').append($('<li>').text(payload + ', latency: ' + latency));
       });
     </script>
