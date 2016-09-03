@@ -1,21 +1,21 @@
-var Hapi = require('hapi')
+var app = require('express')();
+var http = require('http').Server(app);
+var io = require('socket.io')(http);
 
-// create new server instance
-var server = new Hapi.Server()
+app.get('/', function(req, res) {
+  res.sendFile(__dirname + '/public/index.html');
+});
 
-// add server’s connection information
-server.connection({
-  host: 'localhost',
-  port: 3000
-})
+app.get('/player', function(req, res) {
+  res.sendFile(__dirname + '/public/player.html');
+});
 
-server.register({
-  register: require('inert')
-}, function(err) {
-  if (err) throw err
+io.on('connection', function(socket) {
+  socket.on('sound-request', function(payload) {
+    io.emit('sound-play', payload);
+  });
+});
 
-  server.start(function(err) {
-    console.log('Server started at: ' + server.info.uri)
-  })
-})
-
+http.listen(3000, function() {
+  console.log('listening on *:3000');
+});

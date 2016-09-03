@@ -1,0 +1,18 @@
+<!doctype html>
+<html>
+  <head>
+  </head>
+  <body>
+    <button id="play">Play!</button>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="http://code.jquery.com/jquery-1.11.1.js"></script>
+    <script>
+      var socket = io();
+      $('#play').click(function() {
+        var sound = { soundId: 1, timestamp: new Date().getTime() };
+        console.log('sending', JSON.stringify(sound))
+        socket.emit('sound-request', JSON.stringify(sound));
+      });
+    </script>
+  </body>
+</html>

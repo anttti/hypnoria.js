@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+  <head>
+  </head>
+  <body>
+    <ul id="messages"></ul>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="http://code.jquery.com/jquery-1.11.1.js"></script>
+    <script>
+      var socket = io();
+      socket.on('sound-play', function(payload) {
+        var parsed = JSON.parse(payload);
+        var now = new Date().getTime();
+        var latency = now - parsed.timestamp;
+        console.log('playing', payload);
+        $('#messages').append($('<li>').text(payload + ', latency: ' + latency));
+      });
+    </script>
+  </body>
+</html>
