@@ -14,18 +14,29 @@
         right: 0;
         bottom: 0;
         left: 0;
-        background: rgba(0,0,100,0.1);
+        background: rgb(100,100,200);
+      }
+      #cursor {
+        position: fixed;
+        width: 200px;
+        height: 200px;
+        background-image: radial-gradient(ellipse, rgba(255,255,255,0.5), rgba(255,255,255,0) 60%);
+      }
+      .hidden {
+        display: none;
       }
       .instructions {
         position: fixed;
         bottom: 20px;
         left: 20px;
         pointer-events: none;
+        color: white;
       }
     </style>
   </head>
   <body>
     <div id="kaossilator"></div>
+    <div id="cursor" class="hidden"></div>
     <p class="instructions">
       X-axis: frequency<br />
       Y-axis: time
@@ -42,24 +53,41 @@
 
       var socket = io();
 
+      var oscFreqMin = 100;
+      var oscFreqMax = 1000;
+      var filterFreqMin = 0;
+      var filterFreqMax = 10000;
+
       var kaossilator = document.getElementById('kaossilator');
+      var cursor = document.getElementById('cursor');
+      var elementWidth = kaossilator.offsetWidth;
+      var elementHeight = kaossilator.offsetHeight;
+
+      var delayBetweenEmits = 10;
+      var lastEmit = new Date().getTime();
+  
       var mc = new Hammer(kaossilator);
-
       mc.get('pan').set({ direction: Hammer.DIRECTION_ALL });
-      // mc.on("panleft panright panup pandown tap press", function(ev) {
-      mc.on('tap press', function(ev) {
-        var freqMin = 200;
-        var freqMax = 2000;
-        var timeMin = 100;
-        var timeMax = 2000;
+  
+      mc.on('panleft panright panup pandown tap press', function(ev) {
+        cursor.classList.remove('hidden');
+        var now = new Date().getTime();
+        if (now - lastEmit > 10) {
+          lastEmit = now;
 
-        var elementWidth = kaossilator.offsetWidth; 
-        var elementHeight = kaossilator.offsetHeight; 
+          // Place cursor
+          cursor.style.left = ev.center.x - 100 + 'px';
+          cursor.style.top = ev.center.y - 100 + 'px';
 
-        var freq = Math.floor(freqMin + ev.center.x / elementWidth * (freqMax - freqMin));
-        var time = Math.floor(timeMin + ev.center.y / elementHeight * (timeMax - timeMin));
+          // Calculate freqs and play
+          var oscFreq = Math.floor(oscFreqMin + ev.center.x / elementWidth * (oscFreqMax - oscFreqMin));
+          var filterFreq = Math.floor(filterFreqMin + ev.center.y / elementHeight * (filterFreqMax - filterFreqMin));
+          play('bang', oscFreq, filterFreq);
+        }
+      });
 
-        play('bang', freq, time);
+      mc.on('panend tap press', function(ev) {
+        cursor.classList.add('hidden');
       });
 
       var play = function(sound, param1, param2) {
