@@ -15,9 +15,7 @@ socket.on('connect', () => {
       console.log('my id is', result.id, 'type', result.type);
       Dom.showAll('.' + result.type);
       instruments[result.type](socket);
-      setInterval(() => {
-        socket.emit('heartbeat', result.id);
-      }, 500);
+      setInterval(() => socket.emit('heartbeat', result.id), 500);
     }
   });
 });

@@ -1,36 +1,34 @@
-var play = function(socket, sound, params) {
-  var sound = {
-    sound: sound,
+const play = (socket, name, params) => {
+  const sound = Object.assign({}, {
+    sound: name,
     timestamp: new Date().getTime()
-  };
-  sound = Object.assign(sound, params);
+  }, params);
   console.log('sending', JSON.stringify(sound));
   socket.emit('sound-request', JSON.stringify(sound));
 };
 
-var modes = {
-  SYNTH: function(socket) {
-    var oscFreqMin = 100;
-    var oscFreqMax = 1000;
-    var filterFreqMin = 0;
-    var filterFreqMax = 10000;
-    var distortionMin = 0;
-    var distortionMax = 800;
+const modes = {
+  SYNTH: socket => {
+    const oscFreqMin = 100;
+    const oscFreqMax = 1000;
+    const filterFreqMin = 0;
+    const filterFreqMax = 10000;
+    const distortionMin = 0;
+    const distortionMax = 800;
 
-    var kaossilator = document.getElementById('kaossilator');
-    var cursor = document.getElementById('cursor');
+    const cursor = document.querySelector('#cursor');
 
     // TODO: Recalculate when orientation changes
-    var elementWidth = kaossilator.offsetWidth;
-    var elementHeight = kaossilator.offsetHeight;
+    const elementWidth = kaossilator.offsetWidth;
+    const elementHeight = kaossilator.offsetHeight;
 
-    var isPlaying = false;
-    var oscFreq, filterFreq, distortion;
+    let isPlaying = false;
+    let oscFreq, filterFreq, distortion;
 
-    var mc = new Hammer(kaossilator);
-    mc.get('pan').set({ direction: Hammer.DIRECTION_ALL });
+    const touchpad = new Hammer(document.querySelector('#kaossilator'));
+    touchpad.get('pan').set({ direction: Hammer.DIRECTION_ALL });
 
-    mc.on('panleft panright panup pandown tap press', function(ev) {
+    touchpad.on('panleft panright panup pandown tap press', function(ev) {
       isPlaying = true;
 
       cursor.classList.remove('hidden');
@@ -42,28 +40,23 @@ var modes = {
       distortion = Math.floor(distortionMin + ev.center.y / elementHeight * (distortionMax - distortionMin));
     });
 
-    mc.on('panend tap press', function() {
+    touchpad.on('panend tap press', () => {
       isPlaying = false;
       cursor.classList.add('hidden');
     });
 
-    var update = setInterval(function() {
+    const update = setInterval(() => {
       if (isPlaying) {
         play(socket, 'SYNTH', { oscFreq, filterFreq, distortion });
       }
     }, 20);
   },
 
-  DRUMS: function(socket) {
-    var pad1 = new Hammer(document.getElementById('pad1'));
-    var pad2 = new Hammer(document.getElementById('pad2'));
-
-    pad1.on('tap press', function() {
-      play(socket, 'DRUM', { sample: 'KICK' });
-    });
-    pad2.on('tap press', function() {
-      play(socket, 'DRUM', { sample: 'SNARE' });
-    });
+  DRUMS: socket => {
+    const pad1 = new Hammer(document.querySelector('#pad1'));
+    const pad2 = new Hammer(document.querySelector('#pad2'));
+    pad1.on('tap press', () => play(socket, 'DRUM', { sample: 'KICK' }));
+    pad2.on('tap press', () => play(socket, 'DRUM', { sample: 'SNARE' }));
   }
 };
 
