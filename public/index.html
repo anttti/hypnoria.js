@@ -32,79 +32,124 @@
         pointer-events: none;
         color: white;
       }
+      .error {
+        position: fixed;
+        color: white;
+        font-size: 32px;
+        text-align: center;
+        top: 100px;
+        right: 0;
+        left: 0;
+      }
     </style>
   </head>
   <body>
     <div id="kaossilator"></div>
     <div id="cursor" class="hidden"></div>
-    <p class="instructions">
+    <p class="instructions hidden">
       X-axis: frequency<br />
       Y-axis: time
     </p>
+    <p class="error hidden"></p>
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="/hammer.js"></script>
     <script>
+      var show = function(sel, content) {
+        var el = document.querySelector(sel);
+        if (el) {
+          el.classList.remove('hidden');
+          if (content) {
+            el.innerHTML = content;
+          }
+        } 
+      };
+      var hide = function(sel) {
+        document.querySelector(sel).classList.add('hidden');
+      };
+
+      var id;
+      var role;
+      var isConnected = false;
+
+      var socket = io();
+      socket.on('connect', function () {
+        socket.emit('register-client', 'client', function (result) {
+          if (result.error) {
+            console.log(result.error);
+            show('.error', result.error);
+          } else {
+            console.log('my id is', result.id, 'role', result.role);
+            id = result.id;
+            role = result.role;
+            isConnected = true;
+            show('.instructions');
+          }
+        });
+      });
+
       // Disable double-tap zooming on iOS 10
       document.documentElement.addEventListener('touchend', function (event) {
         event.preventDefault();
       }, false);
 
-      var socket = io();
+      if (isConnected) {
+        
+        var oscFreqMin = 100;
+        var oscFreqMax = 1000;
+        var filterFreqMin = 0;
+        var filterFreqMax = 10000;
+        var distortionMin = 0;
+        var distortionMax = 800;
 
-      var oscFreqMin = 100;
-      var oscFreqMax = 1000;
-      var filterFreqMin = 0;
-      var filterFreqMax = 10000;
-      var distortionMin = 0;
-      var distortionMax = 800;
+        var kaossilator = document.getElementById('kaossilator');
+        var cursor = document.getElementById('cursor');
 
-      var kaossilator = document.getElementById('kaossilator');
-      var cursor = document.getElementById('cursor');
+        // TODO: Recalculate when orientation changes
+        var elementWidth = kaossilator.offsetWidth;
+        var elementHeight = kaossilator.offsetHeight;
+    
+        var isPlaying = false;
+        var oscFreq, filterFreq, distortion;
 
-      // TODO: Recalculate when orientation changes
-      var elementWidth = kaossilator.offsetWidth;
-      var elementHeight = kaossilator.offsetHeight;
-  
-      var isPlaying = false;
-      var oscFreq, filterFreq, distortion;
+        var mc = new Hammer(kaossilator);
+        mc.get('pan').set({ direction: Hammer.DIRECTION_ALL });
 
-      var mc = new Hammer(kaossilator);
-      mc.get('pan').set({ direction: Hammer.DIRECTION_ALL });
+        mc.on('panleft panright panup pandown tap press', function(ev) {
+          isPlaying = true;
 
-      mc.on('panleft panright panup pandown tap press', function(ev) {
-        isPlaying = true;
+          cursor.classList.remove('hidden');
+          cursor.style.left = ev.center.x - 100 + 'px';
+          cursor.style.top = ev.center.y - 100 + 'px';
 
-        cursor.classList.remove('hidden');
-        cursor.style.left = ev.center.x - 100 + 'px';
-        cursor.style.top = ev.center.y - 100 + 'px';
+          oscFreq = Math.floor(oscFreqMin + ev.center.x / elementWidth * (oscFreqMax - oscFreqMin));
+          filterFreq = Math.floor(filterFreqMin + ev.center.y / elementHeight * (filterFreqMax - filterFreqMin));
+          distortion = Math.floor(distortionMin + ev.center.y / elementHeight * (distortionMax - distortionMin));
+        });
 
-        oscFreq = Math.floor(oscFreqMin + ev.center.x / elementWidth * (oscFreqMax - oscFreqMin));
-        filterFreq = Math.floor(filterFreqMin + ev.center.y / elementHeight * (filterFreqMax - filterFreqMin));
-        distortion = Math.floor(distortionMin + ev.center.y / elementHeight * (distortionMax - distortionMin));
-      });
+        mc.on('panend tap press', function() {
+          isPlaying = false;
+          cursor.classList.add('hidden');
+        });
 
-      mc.on('panend tap press', function() {
-        isPlaying = false;
-        cursor.classList.add('hidden');
-      });
+        var update = setInterval(function() {
+          if (isPlaying) {
+            play('bang', oscFreq, filterFreq, distortion);
+          }
+        }, 20);
 
-      var update = setInterval(function() {
-        if (isPlaying) {
-          play('bang', oscFreq, filterFreq, distortion);
+        var play = function(sound, param1, param2, param3) {
+          var sound = {
+            sound: sound,
+            param1: param1,
+            param2: param2,
+            param3: param3,
+            timestamp: new Date().getTime()
+          };
+          console.log('sending', JSON.stringify(sound));
+          socket.emit('sound-request', JSON.stringify(sound));
         }
-      }, 20);
 
-      var play = function(sound, param1, param2, param3) {
-        var sound = {
-          sound: sound,
-          param1: param1,
-          param2: param2,
-          param3: param3,
-          timestamp: new Date().getTime()
-        };
-        console.log('sending', JSON.stringify(sound));
-        socket.emit('sound-request', JSON.stringify(sound));
       }
     </script>
   </body>
