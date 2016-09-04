@@ -116,8 +116,8 @@
 
       var types = {
         DRUM: function(parsed) {
-          console.log('playing drum', parsed.param1);
-          switch (parsed.param1) {
+          console.log('playing drum', parsed.sample);
+          switch (parsed.sample) {
             case 'KICK':
               playSample(audioCtx, buffers.kick);
               break;
@@ -145,9 +145,9 @@
             oscillator2.start();
           }
 
-          var newOscFreq = clamp(parsed.param1, oscFreqMin, oscFreqMax);
-          var newFilterFreq = clamp(parsed.param2, filterFreqMin, filterFreqMax);
-          var newDistortion = clamp(parsed.param3, distortionMin, distortionMax);
+          var newOscFreq = clamp(parsed.oscFreq, oscFreqMin, oscFreqMax);
+          var newFilterFreq = clamp(parsed.filterFreq, filterFreqMin, filterFreqMax);
+          var newDistortion = clamp(parsed.distortion, distortionMin, distortionMax);
           
           oscillator.frequency.value = newOscFreq + 2;
           oscillator2.frequency.value = newOscFreq - 2;
