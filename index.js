@@ -1,3 +1,4 @@
+const Immutable = require('immutable');
 const express = require('express');
 const uuid = require('node-uuid');
 const app = express();
@@ -5,6 +6,9 @@ const http = require('http').Server(app);
 const io = require('socket.io')(http);
 const playerIo = io.of('/player-socket');
 
+const Clients = require('./clients');
+
+let clients = Immutable.List();
 let isPlayerConnected = false;
 
 app.use(express.static('public'));
@@ -17,50 +21,44 @@ app.get('/player', (req, res) => {
   res.sendFile(__dirname + '/public/player.html');
 });
 
-const MAX_CLIENTS = 1;
-let clients = [];
-
 io.on('connection', socket => {
   const id = uuid.v4();
   console.log('client', id, 'connected');
 
   socket.on('register-client', (msg, callback) => {
-    if (clients.length >= MAX_CLIENTS) {
+    if (!Clients.canAddClient(clients)) {
       // All client slots are full, let the registering client know
       callback({
         id: id,
         error: 'All slots are full! Please try again later.'
       });
+      console.log('client', id, 'registration rejected: slots full');
     } else {
-      const client = {
-        id: id,
-        role: 'SYNTH'
-      };
-      clients.push(client);
-      callback(client);
-      console.log('client', id, 'registered');
-      console.log('clients registered:', clients);
+      const res = Clients.addClient(clients, id);
+      clients = res.clients;
+      callback(res.client.toJS());
     }
   });
 
   socket.on('sound-request', payload => {
     if (isPlayerConnected) {
       playerIo.emit('sound-play', payload);
+      clients = Clients.updateLastEventTime(clients, id);
     }
   });
 
+  socket.on('heartbeat', id => {
+    clients = Clients.updateLastEventTime(clients, id);
+  });
+
   socket.on('disconnect', () => {
-    const index = clients.findIndex(c => c.id === id);
-    if (index >= 0) {
-      clients.splice(index, 1);
-    }
+    clients = Clients.removeClient(clients, id);
     console.log('clientId', id, 'disconnected');
-    console.log('clients registered:', clients);
   });
 });
 
 // Player namespace
-playerIo.on('connection', function(socket){
+playerIo.on('connection', socket => {
   console.log('Player connected');
   isPlayerConnected = true;
 });
@@ -68,3 +66,7 @@ playerIo.on('connection', function(socket){
 http.listen(3000, () => {
   console.log('listening on *:3000');
 });
+
+setInterval(() => {
+  clients = Clients.removeStaleClients(clients);
+}, 1000);

@@ -16,6 +16,22 @@
         left: 0;
         background: rgb(100,100,200);
       }
+      #pad1 {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 50%;
+        background: rgb(100,100,200);
+      }
+      #pad2 {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 50%;
+        background: rgb(100,200,100);
+      }
       #cursor {
         position: fixed;
         width: 200px;
@@ -44,11 +60,17 @@
     </style>
   </head>
   <body>
-    <div id="kaossilator"></div>
+    <div id="kaossilator" class="SYNTH hidden"></div>
+    <div id="pad1" class="DRUMS hidden"></div>
+    <div id="pad2" class="DRUMS hidden"></div>
     <div id="cursor" class="hidden"></div>
-    <p class="instructions hidden">
-      X-axis: frequency<br />
-      Y-axis: time
+    <p class="instructions SYNTH hidden">
+      X-axis: Osc Frequency<br />
+      Y-axis: Filter Frequency
+    </p>
+    <p class="instructions DRUMS hidden">
+      Pad 1: Kick<br />
+      Pad 2: Snare
     </p>
     <p class="error hidden"></p>
 
@@ -64,13 +86,17 @@
           }
         } 
       };
+      var showAll = function(sel) {
+        [].map.call(document.querySelectorAll(sel), function(el) { 
+          el.classList.remove('hidden');
+        });
+      };
       var hide = function(sel) {
         document.querySelector(sel).classList.add('hidden');
       };
 
       var id;
-      var role;
-      var isConnected = false;
+      var type;
 
       var socket = io();
       socket.on('connect', function () {
@@ -79,11 +105,14 @@
             console.log(result.error);
             show('.error', result.error);
           } else {
-            console.log('my id is', result.id, 'role', result.role);
+            console.log('my id is', result.id, 'type', result.type);
             id = result.id;
-            role = result.role;
-            isConnected = true;
-            show('.instructions');
+            type = result.type;
+
+            show('.instructions-' + type);
+            showAll('.' + type);
+
+            modes[type]();
           }
         });
       });
@@ -93,63 +122,79 @@
         event.preventDefault();
       }, false);
 
-      if (isConnected) {
-        
-        var oscFreqMin = 100;
-        var oscFreqMax = 1000;
-        var filterFreqMin = 0;
-        var filterFreqMax = 10000;
-        var distortionMin = 0;
-        var distortionMax = 800;
+      var play = function(sound, param1, param2, param3) {
+        var sound = {
+          sound: sound,
+          param1: param1,
+          param2: param2,
+          param3: param3,
+          timestamp: new Date().getTime()
+        };
+        console.log('sending', JSON.stringify(sound));
+        socket.emit('sound-request', JSON.stringify(sound));
+      }
 
-        var kaossilator = document.getElementById('kaossilator');
-        var cursor = document.getElementById('cursor');
+      setInterval(function() {
+        socket.emit('heartbeat', id);
+      }, 500);
 
-        // TODO: Recalculate when orientation changes
-        var elementWidth = kaossilator.offsetWidth;
-        var elementHeight = kaossilator.offsetHeight;
-    
-        var isPlaying = false;
-        var oscFreq, filterFreq, distortion;
+      var modes = {
+        SYNTH: function() {
+          var oscFreqMin = 100;
+          var oscFreqMax = 1000;
+          var filterFreqMin = 0;
+          var filterFreqMax = 10000;
+          var distortionMin = 0;
+          var distortionMax = 800;
 
-        var mc = new Hammer(kaossilator);
-        mc.get('pan').set({ direction: Hammer.DIRECTION_ALL });
+          var kaossilator = document.getElementById('kaossilator');
+          var cursor = document.getElementById('cursor');
 
-        mc.on('panleft panright panup pandown tap press', function(ev) {
-          isPlaying = true;
+          // TODO: Recalculate when orientation changes
+          var elementWidth = kaossilator.offsetWidth;
+          var elementHeight = kaossilator.offsetHeight;
+      
+          var isPlaying = false;
+          var oscFreq, filterFreq, distortion;
 
-          cursor.classList.remove('hidden');
-          cursor.style.left = ev.center.x - 100 + 'px';
-          cursor.style.top = ev.center.y - 100 + 'px';
+          var mc = new Hammer(kaossilator);
+          mc.get('pan').set({ direction: Hammer.DIRECTION_ALL });
 
-          oscFreq = Math.floor(oscFreqMin + ev.center.x / elementWidth * (oscFreqMax - oscFreqMin));
-          filterFreq = Math.floor(filterFreqMin + ev.center.y / elementHeight * (filterFreqMax - filterFreqMin));
-          distortion = Math.floor(distortionMin + ev.center.y / elementHeight * (distortionMax - distortionMin));
-        });
+          mc.on('panleft panright panup pandown tap press', function(ev) {
+            isPlaying = true;
 
-        mc.on('panend tap press', function() {
-          isPlaying = false;
-          cursor.classList.add('hidden');
-        });
+            cursor.classList.remove('hidden');
+            cursor.style.left = ev.center.x - 100 + 'px';
+            cursor.style.top = ev.center.y - 100 + 'px';
 
-        var update = setInterval(function() {
-          if (isPlaying) {
-            play('bang', oscFreq, filterFreq, distortion);
-          }
-        }, 20);
+            oscFreq = Math.floor(oscFreqMin + ev.center.x / elementWidth * (oscFreqMax - oscFreqMin));
+            filterFreq = Math.floor(filterFreqMin + ev.center.y / elementHeight * (filterFreqMax - filterFreqMin));
+            distortion = Math.floor(distortionMin + ev.center.y / elementHeight * (distortionMax - distortionMin));
+          });
 
-        var play = function(sound, param1, param2, param3) {
-          var sound = {
-            sound: sound,
-            param1: param1,
-            param2: param2,
-            param3: param3,
-            timestamp: new Date().getTime()
-          };
-          console.log('sending', JSON.stringify(sound));
-          socket.emit('sound-request', JSON.stringify(sound));
+          mc.on('panend tap press', function() {
+            isPlaying = false;
+            cursor.classList.add('hidden');
+          });
+
+          var update = setInterval(function() {
+            if (isPlaying) {
+              play('bang', oscFreq, filterFreq, distortion);
+            }
+          }, 20);
+        },
+
+        DRUMS: function() {
+          var pad1 = new Hammer(document.getElementById('pad1'));
+          var pad2 = new Hammer(document.getElementById('pad2'));
+
+          pad1.on('tap press', function() {
+            play('DRUM', 'KICK');
+          });
+          pad2.on('tap press', function() {
+            play('DRUM', 'SNARE');
+          });
         }
-
       }
     </script>
   </body>
