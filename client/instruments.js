@@ -28,7 +28,7 @@ const modes = {
     const touchpad = new Hammer(document.querySelector('#kaossilator'));
     touchpad.get('pan').set({ direction: Hammer.DIRECTION_ALL });
 
-    touchpad.on('panleft panright panup pandown tap press', function(ev) {
+    touchpad.on('panleft panright panup pandown tap press', ev => {
       isPlaying = true;
 
       cursor.classList.remove('hidden');

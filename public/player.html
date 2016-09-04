@@ -132,8 +132,8 @@
           var timeout;
 
           if (!isSynthPlaying) {
-            console.log('creating new oscillators')
             isSynthPlaying = true;
+
             oscillator = audioCtx.createOscillator();
             oscillator.connect(distortion);
             oscillator.type = 'sawtooth';
