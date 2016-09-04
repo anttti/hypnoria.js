@@ -104,6 +104,7 @@
       var socket = io('/player-socket');
 
       var oscillator, oscillator2;
+      var isSynthPlaying = false;
 
       socket.on('sound-play', function(payload) {
         var parsed = JSON.parse(payload);
@@ -126,14 +127,13 @@
           }
         },
         SYNTH: function(parsed) {
-          var isPlaying = false;
-
           // will stop in 100ms after the last sound-play event
           var PLAYING_TIMEOUT = 100;
           var timeout;
 
-          if (!isPlaying) {
-            isPlaying = true;
+          if (!isSynthPlaying) {
+            console.log('creating new oscillators')
+            isSynthPlaying = true;
             oscillator = audioCtx.createOscillator();
             oscillator.connect(distortion);
             oscillator.type = 'sawtooth';
@@ -160,7 +160,7 @@
             clearTimeout(timeout);
           }
           timeout = setTimeout(function() {
-            isPlaying = false;
+            isSynthPlaying = false;
             oscillator.stop();
             oscillator2.stop();
           }, PLAYING_TIMEOUT);

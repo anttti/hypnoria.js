@@ -1,7 +1,7 @@
 const Immutable = require('immutable');
 
 const STALE_TIMEOUT = 2000;
-const CLIENT_TYPES = [/*'SYNTH',*/ 'DRUMS'];
+const CLIENT_TYPES = ['SYNTH', 'DRUMS'];
 const MAX_CLIENTS = CLIENT_TYPES.length;
 
 const canAddClient = (clients) => {
