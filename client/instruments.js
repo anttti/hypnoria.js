@@ -8,7 +8,7 @@ const play = (socket, name, params) => {
 };
 
 const modes = {
-  SYNTH: socket => {
+  SYNTH(socket) {
     const oscFreqMin = 100;
     const oscFreqMax = 1000;
     const filterFreqMin = 0;
@@ -52,7 +52,7 @@ const modes = {
     }, 20);
   },
 
-  DRUMS: socket => {
+  DRUMS(socket) {
     const pad1 = new Hammer(document.querySelector('#pad1'));
     const pad2 = new Hammer(document.querySelector('#pad2'));
     pad1.on('tap press', () => play(socket, 'DRUM', { sample: 'KICK' }));
