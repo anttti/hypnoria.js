@@ -11,4 +11,4 @@ Bleeps and boops via websockets!
 
 --
 
-Hypnoria.js is proud to be sponsored by [the almighty Spice Program of Futurice](http://spiceprogram.org).
+Hypnoria.js is proud to be sponsored by [the almighty Spice Program of Futurice](http://spiceprogram.org/oss-sponsorship/).
